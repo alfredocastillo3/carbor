@@ -6,68 +6,81 @@ using UnityEngine;
 
 public class InteractableObject : MonoBehaviour
 {
-    private Rigidbody rb;
-    private bool isBeingHeld = false;
-    private float pickupDistance = 3f;
-    private Transform holdingParent;
+    public float moveSpeed = 5f;
+    public float rotationSpeed = 3f;
+    public float grabDistance = 3f;
 
-    private void Start()
+    private Camera mainCamera;
+    private bool isGrabbing = false;
+    private Transform grabbedObject;
+    private Rigidbody grabbedRigidbody;
+
+    void Start()
     {
-        rb = GetComponent<Rigidbody>();
-        // Crea un GameObject vacío como hijo del objeto actual para que el objeto se mantenga en la jerarquía al ser agarrado.
-        holdingParent = new GameObject("HoldingParent").transform;
-        holdingParent.parent = transform.parent;
-        holdingParent.position = transform.position;
+        mainCamera = Camera.main;
     }
 
-    private void Update()
+    void Update()
     {
-        // Detecta si el jugador hace clic o toca la pantalla.
-        if (Input.GetMouseButtonDown(0))
-        {
-            TryPickUpObject();
-        }
+        // Movimiento del personaje
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+        Vector3 moveDirection = new Vector3(horizontal, 0f, vertical).normalized;
+        transform.Translate(moveDirection * moveSpeed * Time.deltaTime);
 
-        // Si el objeto está siendo sostenido, actualiza su posición para seguir al puntero del ratón o al toque en la pantalla.
-        if (isBeingHeld)
-        {
-            MoveObject();
-        }
+        // Rotación de la cámara con el mouse
+        float mouseX = Input.GetAxis("Mouse X") * rotationSpeed;
+        transform.Rotate(Vector3.up, mouseX);
 
-        // Detecta si el jugador suelta el clic o el toque.
-        if (Input.GetMouseButtonUp(0))
+        // Agarre de objetos
+        if (Input.GetKeyDown(KeyCode.E))
         {
-            DropObject();
-        }
-    }
-
-    private void TryPickUpObject()
-    {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-
-        // Hace un raycast para detectar si el objeto es alcanzado por el rayo.
-        if (Physics.Raycast(ray, out hit, pickupDistance))
-        {
-            // Verifica si el objeto alcanzado es el mismo que estamos tratando de agarrar.
-            if (hit.collider.gameObject == gameObject)
+            if (isGrabbing)
             {
-                isBeingHeld = true;
-                rb.isKinematic = true; // Desactiva las físicas para que el objeto no caiga mientras lo sostienes.
-                rb.velocity = Vector3.zero; // Detiene cualquier movimiento que pueda tener el objeto.
+                DropObject();
+            }
+            else
+            {
+                GrabObject();
             }
         }
     }
 
-    private void MoveObject()
+    void GrabObject()
     {
-        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        holdingParent.position = new Vector3(mousePosition.x, mousePosition.y, transform.position.z);
+        RaycastHit hit;
+        Ray ray = mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2, Screen.height / 2, 0));
+
+        if (Physics.Raycast(ray, out hit, grabDistance))
+        {
+            if (hit.collider.CompareTag("Grabbable"))
+            {
+                grabbedObject = hit.transform;
+                grabbedRigidbody = grabbedObject.GetComponent<Rigidbody>();
+
+                if (grabbedRigidbody != null)
+                {
+                    grabbedRigidbody.isKinematic = true;
+                    grabbedObject.SetParent(transform);
+                    isGrabbing = true;
+                }
+            }
+        }
     }
 
-    private void DropObject()
+    void DropObject()
     {
-        isBeingHeld = false;
-        rb.isKinematic = false; // Vuelve a activar las físicas para que el objeto vuelva a caer normalmente.
+        if (grabbedObject != null)
+        {
+            if (grabbedRigidbody != null)
+            {
+                grabbedRigidbody.isKinematic = false;
+            }
+
+            grabbedObject.SetParent(null);
+            grabbedObject = null;
+            grabbedRigidbody = null;
+            isGrabbing = false;
+        }
     }
 }

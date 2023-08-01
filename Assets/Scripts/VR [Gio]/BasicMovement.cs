@@ -7,38 +7,72 @@ using UnityEngine;
 // Author (Discord): Gio#0753
 //-----------------------------------------------------------------------
 
-public class BasicMovement : MonoBehaviour {
+public class BasicMovement : MonoBehaviour
+{
+    public float moveSpeed = 5f;
+    public float rotationSpeed = 3f;
+    public float grabDistance = 3f;
 
-    new Rigidbody rigidbody;
-    new Camera camera;
+    private Camera mainCamera;
+    private bool isGrabbing = false;
+    private Transform grabbedObject;
 
-    int jumps = 1;
-    [SerializeField] float speed = 3, jumpForce = 500;
-
-    void Start() {
-        camera = GetComponentInChildren<Camera>();
-        rigidbody = GetComponent<Rigidbody>();
+    void Start()
+    {
+        mainCamera = Camera.main;
     }
 
-    
-    void Update() {
+    void Update()
+    {
+        // Movimiento del personaje
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+        Vector3 moveDirection = new Vector3(horizontal, 0f, vertical).normalized;
+        transform.Translate(moveDirection * moveSpeed * Time.deltaTime);
 
-        Vector3 velocity = camera.transform.forward * Input.GetAxis("Vertical") * speed;
-        transform.position += velocity * Time.deltaTime;
+        // Rotación de la cámara con el mouse
+        float mouseX = Input.GetAxis("Mouse X") * rotationSpeed;
+        transform.Rotate(Vector3.up, mouseX);
 
-        if (Input.GetButtonDown("Jump")) {
-            Jump();
+        // Agarre de objetos
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            if (isGrabbing)
+            {
+                DropObject();
+            }
+            else
+            {
+                GrabObject();
+            }
         }
     }
 
-    public void Jump() {
-        if(jumps >= 1) {
-            rigidbody.AddForce(Vector3.up * jumpForce);
-            jumps--;
+    void GrabObject()
+    {
+        RaycastHit hit;
+        Ray ray = mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2, Screen.height / 2, 0));
+
+        if (Physics.Raycast(ray, out hit, grabDistance))
+        {
+            if (hit.collider.CompareTag("Grabbable"))
+            {
+                grabbedObject = hit.transform;
+                grabbedObject.GetComponent<Rigidbody>().isKinematic = true;
+                grabbedObject.SetParent(transform);
+                isGrabbing = true;
+            }
         }
     }
 
-    void OnCollisionEnter(Collision collision) {
-        jumps = 1;
+    void DropObject()
+    {
+        if (grabbedObject != null)
+        {
+            grabbedObject.GetComponent<Rigidbody>().isKinematic = false;
+            grabbedObject.SetParent(null);
+            grabbedObject = null;
+            isGrabbing = false;
+        }
     }
 }
